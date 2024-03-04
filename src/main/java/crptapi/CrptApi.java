@@ -27,10 +27,12 @@ public class CrptApi {
         JSONObject jsonDocument;
 
         try {
+            // Чтение содержимого файла "file.json" и преобразование его в JSONObject
             Path filePath = Path.of("file.json");
             String readString = Files.readString(filePath);
             jsonDocument = new JSONObject(readString);
 
+            // Вызов метода createDocument для создания документа с переданными параметрами
             crptApi.createDocument(jsonDocument, "signature-string");
 
         } catch (Exception e) {
@@ -39,18 +41,23 @@ public class CrptApi {
     }
 
     public CrptApi(TimeUnit timeUnit, int requestLimit) {
+        
+        // Создание экземпляра HttpClient с настройками
         this.httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_2)
                 .connectTimeout(Duration.ofSeconds(20))
                 .build();
-
+        
+        // Создание семафора с ограничением на количество одновременных запросов
         this.semaphore = new Semaphore(requestLimit);
-
+        
+        // Создание и запуск отдельного потока для управления семафором
         Runnable runnable = () -> {
             while (!Thread.currentThread().isInterrupted()) {
                 try {
+                    // Освобождение семафора для дополнительных запросов и задержка на 1 единицу времени
                     semaphore.release(requestLimit - semaphore.availablePermits());
-                    timeUnit.sleep(1);
+                    timeUnit.sleep(2);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                 }
@@ -68,9 +75,11 @@ public class CrptApi {
                     .header("Signature", signature)
                     .POST(HttpRequest.BodyPublishers.ofString(jsonDocument.toString()))
                     .build();
-
+            
+            // Отправка запроса и получение ответа
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
+            
+            // Вывод информации о статусе ответа
             System.out.println("Response status code: " + response.statusCode());
             System.out.println("Response body: " + response.body());
 
@@ -79,6 +88,8 @@ public class CrptApi {
         } catch (IOException e) {
             throw e;
         } finally {
+            
+            // Освобождение семафора после завершения запроса
             semaphore.release();
         }
     }
